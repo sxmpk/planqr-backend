@@ -30,9 +30,11 @@ export class LdapService {
 
             const userDn = this.ldapDnPattern.replace('%s', username);
 
+            console.log(`Attempting LDAP bind for DN: ${userDn}`);
+
             client.bind(userDn, password, (err) => {
                 if (err) {
-                    console.log('LDAP Bind failed:', err.message);
+                    console.error(`LDAP Bind failed for ${userDn}:`, err.message);
                     client.unbind();
                     return resolve({ isAuthenticated: false });
                 }
@@ -49,7 +51,9 @@ export class LdapService {
                 client.search(userDn, searchOptions, (err, res) => {
                     if (err) {
                         console.error('LDAP Search failed:', err);
-                        client.unbind();
+                        try {
+                            client.unbind((err) => { if (err) console.error('Unbind error:', err); });
+                        } catch (e) { console.error('Unbind exception:', e); }
                         return resolve({ isAuthenticated: true }); // Auth worked, but details failed
                     }
 
@@ -58,10 +62,6 @@ export class LdapService {
                     let title = '';
 
                     res.on('searchEntry', (entry) => {
-                        const obj = entry.pojo; // entry.object is deprecated/removed in some versions? No, usually it's pojo for raw object or object for instance.
-                        // Actually in @types/ldapjs:
-                        // SearchEntry has 'object' getter?
-                        // Let's cast to any to avoid TS error if types are mismatching
                         const userEntry = (entry as any).object || (entry as any).pojo || {};
                         givenName = userEntry.givenName || '';
                         surname = userEntry.sn || '';
@@ -73,7 +73,13 @@ export class LdapService {
                     });
 
                     res.on('end', (result) => {
-                        client.unbind();
+                        try {
+                            client.unbind((err) => {
+                                if (err) console.error('Unbind error after search:', err);
+                                else console.log('LDAP Unbound successfully');
+                            });
+                        } catch (e) { console.error('Unbind exception:', e); }
+
                         resolve({
                             isAuthenticated: true,
                             givenName,

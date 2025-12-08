@@ -12,6 +12,7 @@ const AUDIENCE = "PlanQR_Audience";
 export class AuthController {
 
     static async login(req: Request, res: Response) {
+        console.log(`Login request received. NODE_ENV=${process.env.NODE_ENV}, Origin=${req.headers.origin}, Cookies=${JSON.stringify(req.cookies)}`);
         try {
             const { username, password } = req.body;
 
